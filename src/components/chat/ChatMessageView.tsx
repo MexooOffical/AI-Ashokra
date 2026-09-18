@@ -7,6 +7,7 @@ import {
   ThumbsDown,
   Share2,
   Check,
+  Square,
 } from 'lucide-react';
 import { ChatMessage } from '../../types';
 
@@ -15,12 +16,14 @@ interface ChatMessageViewProps {
   onLike?: (id: string) => void;
   onDislike?: (id: string) => void;
   onRetry?: (id: string) => void;
+  onStop?: () => void;
 }
 
 export const ChatMessageView: React.FC<ChatMessageViewProps> = ({
   message,
   onLike,
   onDislike,
+  onStop,
 }) => {
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
@@ -60,13 +63,35 @@ export const ChatMessageView: React.FC<ChatMessageViewProps> = ({
     <div className="flex flex-col my-6 animate-in fade-in slide-in-from-bottom-2 duration-150 max-w-3xl w-full">
       {/* Finding the best model to answer status or Active Model pill */}
       {message.isFindingModel ? (
-        <div className="flex items-center gap-2 mb-2 text-neutral-600 text-xs sm:text-[13px] font-normal">
-          <span className="w-2.5 h-2.5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin shrink-0" />
-          <span className="text-neutral-600">Finding the best model to answer...</span>
+        <div className="flex items-center justify-between gap-2 mb-2 text-neutral-600 text-xs sm:text-[13px] font-normal">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin shrink-0" />
+            <span className="text-neutral-600">Finding the best model to answer...</span>
+          </div>
+          {onStop && (
+            <button
+              type="button"
+              onClick={onStop}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100/80 transition-colors cursor-pointer"
+            >
+              <Square className="w-2.5 h-2.5 fill-red-600" />
+              <span>Stop</span>
+            </button>
+          )}
         </div>
       ) : (
-        <div className="text-[12px] sm:text-[13px] text-neutral-400 font-normal mb-2">
-          {message.modelName || 'Auto Mode'}
+        <div className="flex items-center justify-between text-[12px] sm:text-[13px] text-neutral-400 font-normal mb-2">
+          <span>{message.modelName || 'Auto Mode'}</span>
+          {message.isStreaming && onStop && (
+            <button
+              type="button"
+              onClick={onStop}
+              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium text-neutral-600 hover:text-red-600 bg-neutral-100 hover:bg-red-50 transition-colors cursor-pointer border border-neutral-200/60"
+            >
+              <Square className="w-2.5 h-2.5 fill-current" />
+              <span>Stop</span>
+            </button>
+          )}
         </div>
       )}
 

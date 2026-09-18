@@ -25,7 +25,8 @@ export async function streamOpenRouterChat(
   prompt: string,
   history: { role: 'user' | 'assistant'; content: string }[],
   modelId?: string,
-  callbacks?: StreamCallbacks
+  callbacks?: StreamCallbacks,
+  signal?: AbortSignal
 ) {
   // Determine exact model identifier for OpenRouter
   let targetModel = 'openai/gpt-4o-mini';
@@ -43,6 +44,8 @@ export async function streamOpenRouterChat(
     { role: 'user', content: prompt },
   ];
 
+  let fullText = '';
+
   try {
     const apiKey = getOpenRouterKey();
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -58,6 +61,7 @@ export async function streamOpenRouterChat(
         messages,
         stream: true,
       }),
+      signal,
     });
 
     if (!response.ok) {
@@ -72,12 +76,18 @@ export async function streamOpenRouterChat(
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
-    let fullText = '';
     let buffer = '';
 
     while (true) {
+      if (signal?.aborted) {
+        try {
+          await reader.cancel();
+        } catch {}
+        break;
+      }
+
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done || signal?.aborted) break;
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
@@ -104,7 +114,11 @@ export async function streamOpenRouterChat(
 
     callbacks?.onDone(fullText);
     return fullText;
-  } catch (err) {
+  } catch (err: any) {
+    if (signal?.aborted || err?.name === 'AbortError') {
+      callbacks?.onDone(fullText);
+      return fullText;
+    }
     console.error('streamOpenRouterChat error:', err);
     callbacks?.onError(err);
     throw err;

@@ -72,12 +72,14 @@ export const ChatBottomInput: React.FC<ChatBottomInputProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           {isLoading ? (
             <button
+              id="chat-stop-button"
               type="button"
               onClick={onStop}
               title="Stop generating"
-              className="w-6 h-6 rounded-md bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition-colors cursor-pointer"
+              aria-label="Stop generating"
+              className="w-7 h-7 rounded-full bg-neutral-900 hover:bg-neutral-800 active:scale-90 text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs group"
             >
-              <Square className="w-3.5 h-3.5 fill-red-500 text-red-500" />
+              <Square className="w-2.5 h-2.5 fill-white text-white group-hover:scale-110 transition-transform" />
             </button>
           ) : text.trim() ? (
             <button

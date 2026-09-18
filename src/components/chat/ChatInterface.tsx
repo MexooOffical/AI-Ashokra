@@ -44,6 +44,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             message={msg}
             onLike={onLike}
             onDislike={onDislike}
+            onStop={onStop}
           />
         ))}
         <div ref={bottomRef} />

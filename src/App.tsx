@@ -38,6 +38,12 @@ export default function App() {
   const [currentAutoMode, setCurrentAutoMode] = useState(true);
   const [currentSelectedModelIds, setCurrentSelectedModelIds] = useState<string[]>([]);
 
+  // Generation cancellation refs
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const findingModelTimeoutRef = useRef<any>(null);
+  const activeAssistantIdRef = useRef<string | null>(null);
+  const activeSessionIdRef = useRef<string | null>(null);
+
   // User state corresponding to reference screenshot
   const [user, setUser] = useState<UserProfileData>({
     name: 'Spectar',
@@ -76,6 +82,45 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Stop/cancel active generation immediately
+  const handleStopGenerating = () => {
+    if (findingModelTimeoutRef.current) {
+      clearTimeout(findingModelTimeoutRef.current);
+      findingModelTimeoutRef.current = null;
+    }
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    setIsGenerating(false);
+
+    const targetSessionId = activeSessionIdRef.current || activeChatId;
+    const targetAssistantId = activeAssistantIdRef.current;
+
+    if (targetSessionId && targetAssistantId) {
+      setChatSessions((prev) =>
+        prev.map((s) => {
+          if (s.id !== targetSessionId) return s;
+          return {
+            ...s,
+            messages: s.messages.map((m) =>
+              m.id === targetAssistantId
+                ? {
+                    ...m,
+                    isStreaming: false,
+                    isFindingModel: false,
+                    content: m.content || 'Response generation stopped by user.',
+                  }
+                : m
+            ),
+          };
+        })
+      );
+    }
+  };
+
   // Send message and execute OpenRouter streaming
   const handleStartOrSendMessage = async (
     prompt: string,
@@ -83,6 +128,19 @@ export default function App() {
     modelIds?: string[]
   ) => {
     if (!prompt.trim() || isGenerating) return;
+
+    // Abort any existing generation
+    if (findingModelTimeoutRef.current) {
+      clearTimeout(findingModelTimeoutRef.current);
+      findingModelTimeoutRef.current = null;
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     let sessionId = activeChatId;
 
@@ -104,6 +162,8 @@ export default function App() {
       isStreaming: true,
     };
 
+    activeAssistantIdRef.current = assistantPlaceholderId;
+
     if (!sessionId) {
       // Create a brand new session
       const newSession: ChatSession = {
@@ -115,9 +175,11 @@ export default function App() {
         isAutoMode: currentAutoMode,
       };
       sessionId = newSession.id;
+      activeSessionIdRef.current = newSession.id;
       setChatSessions((prev) => [newSession, ...prev]);
       setActiveChatId(newSession.id);
     } else {
+      activeSessionIdRef.current = sessionId;
       // Append to existing session
       setChatSessions((prev) =>
         prev.map((s) =>
@@ -141,7 +203,10 @@ export default function App() {
     });
 
     // "Finding the best model to answer..." transition delay (600ms) to match screenshot UI
-    setTimeout(async () => {
+    findingModelTimeoutRef.current = setTimeout(async () => {
+      findingModelTimeoutRef.current = null;
+      if (abortController.signal.aborted) return;
+
       // Update isFindingModel to false
       setChatSessions((prev) =>
         prev.map((s) => {
@@ -173,66 +238,77 @@ export default function App() {
           content: m.content,
         }));
 
-        await streamOpenRouterChat(prompt, history, targetModelId, {
-          onChunk: (chunk) => {
-            setChatSessions((prev) =>
-              prev.map((s) => {
-                if (s.id !== sessionId) return s;
-                return {
-                  ...s,
-                  messages: s.messages.map((m) =>
-                    m.id === assistantPlaceholderId
-                      ? { ...m, content: m.content + chunk }
-                      : m
-                  ),
-                };
-              })
-            );
+        await streamOpenRouterChat(
+          prompt,
+          history,
+          targetModelId,
+          {
+            onChunk: (chunk) => {
+              if (abortController.signal.aborted) return;
+              setChatSessions((prev) =>
+                prev.map((s) => {
+                  if (s.id !== sessionId) return s;
+                  return {
+                    ...s,
+                    messages: s.messages.map((m) =>
+                      m.id === assistantPlaceholderId
+                        ? { ...m, content: m.content + chunk }
+                        : m
+                    ),
+                  };
+                })
+              );
+            },
+            onDone: (fullText) => {
+              setChatSessions((prev) =>
+                prev.map((s) => {
+                  if (s.id !== sessionId) return s;
+                  return {
+                    ...s,
+                    messages: s.messages.map((m) =>
+                      m.id === assistantPlaceholderId
+                        ? { ...m, content: fullText, isStreaming: false, isFindingModel: false }
+                        : m
+                    ),
+                  };
+                })
+              );
+              setIsGenerating(false);
+              abortControllerRef.current = null;
+            },
+            onError: (err) => {
+              if (abortController.signal.aborted) return;
+              setChatSessions((prev) =>
+                prev.map((s) => {
+                  if (s.id !== sessionId) return s;
+                  return {
+                    ...s,
+                    messages: s.messages.map((m) =>
+                      m.id === assistantPlaceholderId
+                        ? {
+                            ...m,
+                            content:
+                              m.content ||
+                              'I am currently experiencing a connection issue with OpenRouter. Please verify the network or API key.',
+                            isStreaming: false,
+                            isFindingModel: false,
+                          }
+                        : m
+                    ),
+                  };
+                })
+              );
+              setIsGenerating(false);
+              abortControllerRef.current = null;
+            },
           },
-          onDone: (fullText) => {
-            setChatSessions((prev) =>
-              prev.map((s) => {
-                if (s.id !== sessionId) return s;
-                return {
-                  ...s,
-                  messages: s.messages.map((m) =>
-                    m.id === assistantPlaceholderId
-                      ? { ...m, content: fullText, isStreaming: false, isFindingModel: false }
-                      : m
-                  ),
-                };
-              })
-            );
-            setIsGenerating(false);
-          },
-          onError: (err) => {
-            setChatSessions((prev) =>
-              prev.map((s) => {
-                if (s.id !== sessionId) return s;
-                return {
-                  ...s,
-                  messages: s.messages.map((m) =>
-                    m.id === assistantPlaceholderId
-                      ? {
-                          ...m,
-                          content:
-                            m.content ||
-                            'I am currently experiencing a connection issue with OpenRouter. Please verify the network or API key.',
-                          isStreaming: false,
-                          isFindingModel: false,
-                        }
-                      : m
-                  ),
-                };
-              })
-            );
-            setIsGenerating(false);
-          },
-        });
+          abortController.signal
+        );
       } catch (e) {
         setIsGenerating(false);
+        abortControllerRef.current = null;
       }
-    }, 700);
+    }, 600);
   };
 
   const handleLikeMessage = (messageId: string) => {
@@ -361,6 +437,7 @@ export default function App() {
             <ChatInterface
               messages={messages}
               isLoading={isGenerating}
+              onStop={handleStopGenerating}
               onSendMessage={(txt) => handleStartOrSendMessage(txt)}
               selectedModelIds={currentSelectedModelIds}
               isAutoMode={currentAutoMode}
