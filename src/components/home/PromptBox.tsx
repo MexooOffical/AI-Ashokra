@@ -290,42 +290,33 @@ export const PromptBox: React.FC<PromptBoxProps> = ({
               id="mode-selector-btn"
               type="button"
               onClick={() => setIsChooseModelOpen(true)}
-              className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-[13px] font-normal text-neutral-800 hover:text-neutral-950 bg-[#f4f3ef] hover:bg-[#eae8e1] transition-all cursor-pointer select-none border border-neutral-200/60 shadow-2xs"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs sm:text-[13px] font-normal text-neutral-800 hover:text-neutral-950 bg-[#f4f3ef] hover:bg-[#eae8e1] transition-all cursor-pointer select-none border border-neutral-200/60 shadow-2xs"
             >
-              {/* Overlapping circular logos matching user reference screenshot */}
+              {/* Overlapping circular logos with dark background exactly matching user screenshot */}
               <div className="flex -space-x-1.5 overflow-hidden shrink-0 items-center">
                 {selectedModels.map((m) => (
                   <div
                     key={m.id}
-                    className="w-5 h-5 rounded-full bg-[#18181b] ring-1.5 ring-white flex items-center justify-center overflow-hidden shrink-0 shadow-2xs"
-                    title={m.name}
+                    className="w-5 h-5 rounded-full bg-[#18181b] ring-1.5 ring-white flex items-center justify-center overflow-hidden shrink-0"
+                    title={`${m.name} (${m.provider || ''})`}
                   >
                     <img
                       src={m.logo}
                       alt={m.name}
                       className="w-3.5 h-3.5 object-contain"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        target.style.display = 'none';
-                        const parent = target.parentElement;
-                        if (parent && !parent.querySelector('.fallback-model-char')) {
-                          const charSpan = document.createElement('span');
-                          charSpan.className = 'fallback-model-char text-[9px] text-white font-bold';
-                          charSpan.innerText = m.name[0];
-                          parent.appendChild(charSpan);
-                        }
-                      }}
                     />
                   </div>
                 ))}
               </div>
 
-              {/* Model count label */}
-              <span className="font-normal text-neutral-800">
-                {selectedModelIds.length === 1 ? '1 model' : `${selectedModelIds.length} models`}
+              {/* Model count label or single model name */}
+              <span className="font-medium text-neutral-900">
+                {selectedModelIds.length === 1
+                  ? selectedModels[0]?.name || '1 model'
+                  : `${selectedModelIds.length} models`}
               </span>
 
-              <ChevronDown className="w-3.5 h-3.5 text-neutral-500 stroke-[2.2]" />
+              <ChevronDown className="w-3.5 h-3.5 text-neutral-500 stroke-[2]" />
             </button>
           )}
 

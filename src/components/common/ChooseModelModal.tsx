@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import {
   X,
   Search,
-  SlidersHorizontal,
-  Rocket,
+  Filter,
   Check,
-  Lock,
   RotateCcw,
 } from 'lucide-react';
 import { AIModel } from '../../types';
@@ -45,43 +43,45 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Filter models based on active tab and search query
+  // Filter models based on search query and category tabs
   const filteredModels = AVAILABLE_MODELS.filter((model) => {
-    const matchesSearch =
-      model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (model.provider && model.provider.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    if (!matchesSearch) return false;
-    // When searching, show all matching models
-    if (searchQuery.trim()) return true;
-
-    // Otherwise prioritize the tab
-    if (activeTab === 'popular') return true; // show all models on popular tab as in reference screenshot
+    const q = searchQuery.toLowerCase().trim();
+    if (q) {
+      return (
+        model.name.toLowerCase().includes(q) ||
+        (model.provider && model.provider.toLowerCase().includes(q))
+      );
+    }
+    if (activeTab === 'popular') return true; // show all models in popular tab
     return model.category === activeTab;
   });
 
   const handleToggleModel = (model: AIModel) => {
     if (model.isLocked) {
-      setLockedNotice(`"${model.name}" requires Pro membership.`);
+      setLockedNotice(`"${model.name}" is locked. Upgrade to Pro membership.`);
       if (onUpgradeRequired) {
         setTimeout(() => {
           onUpgradeRequired();
-        }, 600);
+        }, 500);
       }
       return;
     }
 
     setLockedNotice(null);
     setIsAuto(false);
+
     setSelectedIds((prev) => {
       if (prev.includes(model.id)) {
         const next = prev.filter((id) => id !== model.id);
-        // If everything is unselected, revert back to Auto Mode
         if (next.length === 0) {
           setIsAuto(true);
         }
         return next;
       } else {
+        // Enforce max 4 selectable models if user reaches limit
+        if (prev.length >= 4) {
+          return prev;
+        }
         return [...prev, model.id];
       }
     });
@@ -104,15 +104,27 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
     onClose();
   };
 
+  // Determine button text matching screenshot
+  const getButtonText = () => {
+    if (isAuto || selectedIds.length === 0) {
+      return 'Continue with Auto Mode';
+    }
+    if (selectedIds.length === 1) {
+      const selectedModel = AVAILABLE_MODELS.find((m) => m.id === selectedIds[0]);
+      return `Continue with ${selectedModel?.name || 'Selected Model'}`;
+    }
+    return 'Apply for this chat';
+  };
+
   return (
     <div
       id="choose-model-backdrop"
-      className="fixed inset-0 bg-black/45 backdrop-blur-[2px] z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
         id="choose-model-card"
-        className="w-full max-w-[620px] bg-white rounded-[28px] shadow-2xl border border-neutral-200/90 p-5 sm:p-6 relative my-auto animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-[700px] bg-white rounded-[24px] sm:rounded-[28px] shadow-2xl border border-neutral-200/80 p-5 sm:p-7 relative my-auto animate-in fade-in zoom-in-95 duration-150 text-neutral-900"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
@@ -139,12 +151,12 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
 
         {/* Filters & Search Row */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
-          {/* Tabs */}
+          {/* Tabs: Popular, Intelligent, Latest */}
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => setActiveTab('popular')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-full text-xs sm:text-[13px] font-semibold transition-all cursor-pointer ${
                 activeTab === 'popular'
                   ? 'bg-[#18181b] text-white shadow-2xs'
                   : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
@@ -155,7 +167,7 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('intelligent')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all cursor-pointer ${
                 activeTab === 'intelligent'
                   ? 'bg-[#18181b] text-white shadow-2xs'
                   : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
@@ -166,7 +178,7 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('latest')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all cursor-pointer ${
                 activeTab === 'latest'
                   ? 'bg-[#18181b] text-white shadow-2xs'
                   : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
@@ -176,22 +188,22 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
             </button>
           </div>
 
-          {/* Search Input */}
-          <div className="flex-1 min-w-[140px] relative">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-neutral-200/90 bg-[#fafaf8] focus-within:bg-white focus-within:border-neutral-400 transition-all">
+          {/* Search Input matching exact placeholder and magnifying icon */}
+          <div className="flex-1 min-w-[150px] relative">
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-neutral-200/90 bg-white focus-within:border-neutral-400 transition-all">
               <Search className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search models..."
-                className="w-full bg-transparent border-0 outline-none text-xs text-neutral-800 placeholder:text-neutral-400 font-normal"
+                className="w-full bg-transparent border-0 outline-none text-xs sm:text-[13px] text-neutral-800 placeholder:text-neutral-400 font-normal"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="text-neutral-400 hover:text-neutral-600 text-xs"
+                  className="text-neutral-400 hover:text-neutral-600 text-xs cursor-pointer"
                 >
                   ×
                 </button>
@@ -199,17 +211,17 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
             </div>
           </div>
 
-          {/* Filter button */}
+          {/* Filter button with funnel icon */}
           <button
             type="button"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-neutral-200/90 text-xs font-medium text-neutral-700 hover:bg-neutral-50 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-neutral-200/90 text-xs sm:text-[13px] font-medium text-neutral-700 hover:bg-neutral-50 transition-colors cursor-pointer"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-neutral-500" />
+            <Filter className="w-3.5 h-3.5 text-neutral-500" />
             <span>Filter</span>
           </button>
         </div>
 
-        {/* Auto Mode Card */}
+        {/* Auto Mode (Super Ashokra) Card */}
         <div
           id="auto-mode-card"
           onClick={handleSelectAuto}
@@ -220,12 +232,20 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
           }`}
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-neutral-900 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <Rocket className="w-4 h-4 text-white" />
+            {/* Auto Mode Icon */}
+            <div className="w-8 h-8 rounded-xl bg-white border border-neutral-200/80 flex items-center justify-center shrink-0 shadow-2xs">
+              <img
+                src="/assets/ai-ashokra-logo.png"
+                alt="Auto Mode"
+                className="w-5 h-5 object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
             </div>
             <div>
               <div className="text-[14px] font-semibold text-neutral-900 tracking-tight">
-                Auto Mode <span className="font-normal text-neutral-500">(Super Fiesta)</span>
+                Auto Mode <span className="font-normal text-neutral-500">(Super Ashokra)</span>
               </div>
               <div className="text-xs text-neutral-500">
                 routes the best model for you
@@ -233,25 +253,23 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
             </div>
           </div>
 
-          {/* Selected Green Checkmark */}
-          {isAuto ? (
-            <div className="w-5 h-5 rounded-full bg-[#10a37f] text-white flex items-center justify-center shrink-0">
-              <Check className="w-3 h-3 stroke-[3]" />
+          {/* Checkmark indicator */}
+          {isAuto && (
+            <div className="w-5 h-5 flex items-center justify-center text-neutral-800 shrink-0">
+              <Check className="w-4 h-4 stroke-[2.5]" />
             </div>
-          ) : (
-            <div className="w-5 h-5 rounded-full border-2 border-neutral-300 shrink-0" />
           )}
         </div>
 
-        {/* Centered Divider: or pick your own */}
+        {/* Divider with models counter: e.g., "0/4 models selected" or "1/4 models selected" */}
         <div className="relative my-4 flex items-center justify-center">
           <div className="w-full border-t border-neutral-200/70" />
           <span className="absolute bg-white px-3 text-[11px] font-normal text-neutral-400 select-none">
-            or pick your own
+            {selectedIds.length}/4 models selected
           </span>
         </div>
 
-        {/* Locked alert notice if user clicked locked model */}
+        {/* Locked alert notice */}
         {lockedNotice && (
           <div className="mb-3 px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center justify-between animate-in fade-in">
             <span>{lockedNotice}</span>
@@ -260,13 +278,13 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
               onClick={onUpgradeRequired}
               className="font-semibold underline ml-2 cursor-pointer hover:text-amber-950"
             >
-              Upgrade
+              Upgrade Now
             </button>
           </div>
         )}
 
-        {/* Models Grid (2 Columns) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[300px] overflow-y-auto pr-1">
+        {/* Models Grid (2 columns matching the user screenshot) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[310px] overflow-y-auto pr-1">
           {filteredModels.map((model) => {
             const isSelected = !isAuto && selectedIds.includes(model.id);
 
@@ -275,28 +293,27 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
                 key={model.id}
                 id={`model-item-${model.id}`}
                 onClick={() => handleToggleModel(model)}
-                className={`rounded-2xl p-3 flex items-center justify-between transition-all duration-150 border cursor-pointer select-none ${
+                className={`rounded-2xl p-3 sm:py-3 sm:px-3.5 flex items-center justify-between transition-all duration-150 border cursor-pointer select-none ${
                   isSelected
-                    ? 'bg-[#f4f3ef] border-neutral-400/80 shadow-2xs'
+                    ? 'bg-white border-2 border-[#10a37f] shadow-[0_2px_8px_rgba(16,163,127,0.08)]'
                     : 'bg-[#fafaf8] hover:bg-[#f3f2ee] border-neutral-200/60'
-                } ${model.isLocked ? 'opacity-85' : ''}`}
+                }`}
               >
-                {/* Logo and Name */}
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-7 h-7 rounded-lg overflow-hidden shrink-0 flex items-center justify-center bg-white border border-neutral-200/60 p-0.5">
+                {/* Logo and Name/Provider */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-7 h-7 rounded-lg overflow-hidden shrink-0 flex items-center justify-center bg-transparent">
                     <img
                       src={model.logo}
                       alt={model.name}
-                      className="w-full h-full object-contain"
+                      className="w-6 h-6 object-contain"
                       onError={(e) => {
-                        // Fallback icon placeholder if image url is restricted
                         const target = e.currentTarget;
                         target.style.display = 'none';
                         const parent = target.parentElement;
                         if (parent && !parent.querySelector('.model-fallback-badge')) {
                           const fallback = document.createElement('div');
                           fallback.className =
-                            'model-fallback-badge w-full h-full bg-neutral-100 flex items-center justify-center text-[10px] font-bold text-neutral-700';
+                            'model-fallback-badge w-6 h-6 rounded-md bg-neutral-200 flex items-center justify-center text-[10px] font-bold text-neutral-700';
                           fallback.innerText = model.name.slice(0, 2).toUpperCase();
                           parent.appendChild(fallback);
                         }
@@ -304,31 +321,41 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
                     />
                   </div>
 
-                  <span className="text-[13px] sm:text-[14px] font-medium text-neutral-900 truncate">
-                    {model.name}
-                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[13px] sm:text-[14px] font-medium text-neutral-900 truncate leading-snug">
+                      {model.name}
+                    </div>
+                    <div className="text-[11px] text-neutral-400 truncate leading-snug">
+                      {model.provider}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Right side status: Locked badge OR Checkbox */}
+                {/* Right side status: Locked Diamond Badge + Lock Icon OR Radio/Circle */}
                 <div className="flex items-center gap-1.5 shrink-0 ml-2">
                   {model.isLocked ? (
                     <div className="flex items-center gap-1.5">
                       {model.multiplier && (
-                        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-[#fbf5e6] text-[#b45309] border border-amber-300/60 text-[11px] font-semibold">
-                          <span>💎</span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#fbf5e6] text-[#b45309] border border-amber-300/60 text-[11px] font-semibold">
+                          <span className="text-[9px]">◆</span>
                           <span>{model.multiplier}</span>
                         </span>
                       )}
-                      <Lock className="w-3.5 h-3.5 text-neutral-400 fill-neutral-400" />
+                      {/* Square lock icon matching screenshot */}
+                      <div className="w-3.5 h-3.5 rounded-[3px] border border-neutral-400/80 flex items-center justify-center text-[8px] text-neutral-500">
+                        <div className="w-1.5 h-1.5 bg-neutral-400 rounded-2xs" />
+                      </div>
                     </div>
                   ) : (
                     <div>
                       {isSelected ? (
-                        <div className="w-5 h-5 rounded-full bg-[#10a37f] text-white flex items-center justify-center">
-                          <Check className="w-3 h-3 stroke-[3]" />
+                        /* Selected circle with inner green dot matching reference */
+                        <div className="w-5 h-5 rounded-full border-2 border-[#10a37f] flex items-center justify-center bg-white">
+                          <div className="w-2.5 h-2.5 rounded-full bg-[#10a37f]" />
                         </div>
                       ) : (
-                        <div className="w-5 h-5 rounded-full border-2 border-neutral-300" />
+                        /* Empty subtle circle matching reference */
+                        <div className="w-5 h-5 rounded-full border border-neutral-300/80 bg-white" />
                       )}
                     </div>
                   )}
@@ -352,18 +379,14 @@ export const ChooseModelModal: React.FC<ChooseModelModalProps> = ({
             <RotateCcw className="w-4 h-4 stroke-[1.8]" />
           </button>
 
-          {/* Action confirmation button */}
+          {/* Action confirmation button: e.g. "Continue with Qwen3.5" or "Apply for this chat" */}
           <button
             id="apply-model-selection-btn"
             type="button"
             onClick={handleConfirm}
-            className="px-5 py-2.5 rounded-full bg-[#18181b] hover:bg-black text-white text-xs sm:text-sm font-semibold tracking-tight transition-all active:scale-[0.98] shadow-xs cursor-pointer"
+            className="px-6 py-2.5 rounded-full bg-[#18181b] hover:bg-black text-white text-xs sm:text-[13px] font-semibold tracking-tight transition-all active:scale-[0.98] shadow-xs cursor-pointer"
           >
-            {isAuto
-              ? 'Continue with Auto Mode'
-              : selectedIds.length > 0
-              ? 'Apply for this chat'
-              : 'Continue with Auto Mode'}
+            {getButtonText()}
           </button>
         </div>
       </div>

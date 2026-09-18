@@ -1,6 +1,38 @@
 import { AIModel } from '../types';
 
+// Exact 8 models in the exact order shown in user screenshot
 export const AVAILABLE_MODELS: AIModel[] = [
+  // Left column row 1
+  {
+    id: 'deepseek-chat',
+    name: 'DeepSeek Chat',
+    provider: 'Free model',
+    logo: 'https://cdn.simpleicons.org/deepseek/4D6BFE',
+    isFree: true,
+    isLocked: false,
+    category: 'intelligent',
+  },
+  // Right column row 1
+  {
+    id: 'gpt-5-4-nano',
+    name: 'GPT-5.4 nano',
+    provider: 'OpenAI',
+    logo: 'https://images.seeklogo.com/logo-png/46/2/chatgpt-logo-png_seeklogo-465219.png',
+    isFree: true,
+    isLocked: false,
+    category: 'latest',
+  },
+  // Left column row 2
+  {
+    id: 'gemini-3-1-flash-lite',
+    name: 'Gemini 3.1 Flash Lite',
+    provider: 'Google',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg',
+    isFree: true,
+    isLocked: false,
+    category: 'latest',
+  },
+  // Right column row 2
   {
     id: 'claude-opus-5',
     name: 'Claude Opus 5',
@@ -11,25 +43,28 @@ export const AVAILABLE_MODELS: AIModel[] = [
     multiplier: '8x',
     category: 'intelligent',
   },
+  // Left column row 3
   {
     id: 'ministral-3-3b',
     name: 'Ministral 3 3B',
-    provider: 'Mistral AI',
+    provider: 'Free model',
     logo: 'https://cdn.simpleicons.org/mistralai/FF7000',
     isFree: true,
     isLocked: false,
     category: 'popular',
   },
+  // Right column row 3
   {
     id: 'kimi-k3',
     name: 'Kimi K3',
-    provider: 'Moonshot AI',
+    provider: 'Free model',
     logo: 'https://registry.npmmirror.com/@lobehub/icons-static-png/latest/files/light/kimi-color.png',
     isFree: false,
     isLocked: true,
     multiplier: '4x',
     category: 'popular',
   },
+  // Left column row 4
   {
     id: 'gpt-5-4-mini',
     name: 'GPT-5.4 mini',
@@ -39,40 +74,14 @@ export const AVAILABLE_MODELS: AIModel[] = [
     isLocked: false,
     category: 'popular',
   },
+  // Right column row 4
   {
     id: 'qwen-3-5',
     name: 'Qwen3.5',
-    provider: 'Alibaba Cloud',
+    provider: 'Free model',
     logo: 'https://cdn.simpleicons.org/qwen/6E56CF',
     isFree: true,
     isLocked: false,
     category: 'popular',
-  },
-  {
-    id: 'gpt-5-4-nano',
-    name: 'GPT-5.4 nano',
-    provider: 'OpenAI',
-    logo: 'https://images.seeklogo.com/logo-png/46/2/chatgpt-logo-png_seeklogo-465219.png',
-    isFree: true,
-    isLocked: false,
-    category: 'latest',
-  },
-  {
-    id: 'deepseek-chat',
-    name: 'DeepSeek Chat',
-    provider: 'DeepSeek',
-    logo: 'https://cdn.simpleicons.org/deepseek/4D6BFE',
-    isFree: true,
-    isLocked: false,
-    category: 'intelligent',
-  },
-  {
-    id: 'gemini-3-1-flash-lite',
-    name: 'Gemini 3.1 Flash Lite',
-    provider: 'Google',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg',
-    isFree: true,
-    isLocked: false,
-    category: 'latest',
   },
 ];
