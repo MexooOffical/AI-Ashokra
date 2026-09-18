@@ -20,8 +20,8 @@ export const HomePage: React.FC<HomePageProps> = ({
   onOpenFirebaseModal,
   onOpenUpgradeModal,
 }) => {
-  // Default prompt matches screenshot "Fix this error in my React cod" or empty
-  const [promptText, setPromptText] = useState('Fix this error in my React cod');
+  // Empty default prompt so placeholder appears clean
+  const [promptText, setPromptText] = useState('');
   const [activeNotification, setActiveNotification] = useState<{
     msg: string;
     isFirebase?: boolean;
