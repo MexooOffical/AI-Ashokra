@@ -11,12 +11,14 @@ interface HomePageProps {
   onNavigateTo?: (section: string) => void;
   onPromptSaved?: (count: number) => void;
   onOpenFirebaseModal?: () => void;
+  onOpenUpgradeModal?: () => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
   userName = 'Spectar',
   onPromptSaved,
   onOpenFirebaseModal,
+  onOpenUpgradeModal,
 }) => {
   // Default prompt matches screenshot "Fix this error in my React cod" or empty
   const [promptText, setPromptText] = useState('Fix this error in my React cod');
@@ -48,7 +50,11 @@ export const HomePage: React.FC<HomePageProps> = ({
     }, 4500);
   };
 
-  const handlePromptSubmit = async (prompt: string, mode: PromptMode) => {
+  const handlePromptSubmit = async (
+    prompt: string,
+    mode: PromptMode,
+    selectedModels?: string[]
+  ) => {
     // Save to Cloud Firestore
     const docId = await savePrompt(prompt, mode);
     if (docId) {
@@ -57,9 +63,17 @@ export const HomePage: React.FC<HomePageProps> = ({
         onPromptSaved?.(next);
         return next;
       });
-      showNotification(`Saved prompt to Firestore (${mode})`, true, docId);
+      const modelsText =
+        selectedModels && selectedModels.length > 0
+          ? ` (${selectedModels.length} models)`
+          : '';
+      showNotification(`Saved prompt to Firestore${modelsText}`, true, docId);
     } else {
-      showNotification(`Prompt ready for ${mode}: "${prompt.slice(0, 45)}..."`);
+      const modelsText =
+        selectedModels && selectedModels.length > 0
+          ? ` (${selectedModels.length} models)`
+          : ` (${mode})`;
+      showNotification(`Prompt ready${modelsText}: "${prompt.slice(0, 45)}..."`);
     }
   };
 
@@ -96,6 +110,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           onChange={setPromptText}
           onSubmit={handlePromptSubmit}
           placeholder="What would you like to create?"
+          onOpenUpgrade={onOpenUpgradeModal}
         />
 
         {/* Quick Action Category Pills */}

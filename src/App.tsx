@@ -138,6 +138,7 @@ export default function App() {
                 });
               }}
               onOpenFirebaseModal={() => setIsFirebaseOpen(true)}
+              onOpenUpgradeModal={() => setIsUpgradeOpen(true)}
             />
           ) : (
             /* Ready studio container for subsequent modules */

@@ -35,3 +35,14 @@ export interface QuickAction {
   iconName: string;
   promptSuggestion?: string;
 }
+
+export interface AIModel {
+  id: string;
+  name: string;
+  provider?: string;
+  logo: string;
+  isFree?: boolean;
+  isLocked?: boolean;
+  multiplier?: string;
+  category?: 'popular' | 'intelligent' | 'latest';
+}

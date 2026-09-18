@@ -1,64 +1,54 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Plus,
-  X,
   ChevronDown,
-  Mic,
-  MicOff,
   ArrowUp,
-  Sparkles,
   Paperclip,
-  Image as ImageIcon,
-  FileCode,
-  Check,
   Globe,
   Columns3,
   Atom,
   Lock,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import { PromptMode } from '../../types';
+import { AVAILABLE_MODELS } from '../../data/models';
+import { ChooseModelModal } from '../common/ChooseModelModal';
 
 interface PromptBoxProps {
   value: string;
   onChange: (value: string) => void;
-  onSubmit: (prompt: string, mode: PromptMode) => void;
+  onSubmit: (prompt: string, mode: PromptMode, selectedModels?: string[]) => void;
   placeholder?: string;
+  onOpenUpgrade?: () => void;
 }
-
-const MODES: { id: PromptMode; label: string; desc: string }[] = [
-  { id: 'Auto', label: 'Auto', desc: 'Balances speed & deep intelligence' },
-  { id: 'Ashokra Fast', label: 'Ashokra Fast', desc: 'Optimized for instant responses' },
-  { id: 'Ashokra Ultra', label: 'Ashokra Ultra', desc: 'Maximum depth & complex reasoning' },
-  { id: 'Ashokra Pro', label: 'Ashokra Pro', desc: 'Creative, coding & multimodal tasks' },
-];
 
 export const PromptBox: React.FC<PromptBoxProps> = ({
   value,
   onChange,
   onSubmit,
   placeholder = 'What would you like to create?',
+  onOpenUpgrade,
 }) => {
-  const [mode, setMode] = useState<PromptMode>('Auto');
-  const [isModeOpen, setIsModeOpen] = useState(false);
+  const [isAutoMode, setIsAutoMode] = useState(true);
+  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
+  const [isChooseModelOpen, setIsChooseModelOpen] = useState(false);
   const [isAttachOpen, setIsAttachOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
 
-  const modeMenuRef = useRef<HTMLDivElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const selectedModels = AVAILABLE_MODELS.filter((m) =>
+    selectedModelIds.includes(m.id)
+  );
+
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        modeMenuRef.current &&
-        !modeMenuRef.current.contains(e.target as Node)
-      ) {
-        setIsModeOpen(false);
-      }
       if (
         attachMenuRef.current &&
         !attachMenuRef.current.contains(e.target as Node)
@@ -74,7 +64,7 @@ export const PromptBox: React.FC<PromptBoxProps> = ({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (value.trim()) {
-        onSubmit(value, mode);
+        onSubmit(value, isAutoMode ? 'Auto' : 'Ashokra Pro', selectedModelIds);
       }
     }
   };
@@ -284,68 +274,69 @@ export const PromptBox: React.FC<PromptBoxProps> = ({
 
         {/* Right side controls: Mode Selector + Mic or Send */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Mode Selector */}
-          <div className="relative" ref={modeMenuRef}>
+          {/* AI Model Selector Button */}
+          {isAutoMode || selectedModelIds.length === 0 ? (
             <button
               id="mode-selector-btn"
               type="button"
-              onClick={() => setIsModeOpen(!isModeOpen)}
-              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-[13px] font-semibold text-neutral-800 hover:text-neutral-950 bg-neutral-100/90 hover:bg-neutral-200/80 transition-colors cursor-pointer select-none"
+              onClick={() => setIsChooseModelOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-[13px] font-medium text-neutral-800 hover:text-neutral-950 bg-[#f4f3ef] hover:bg-[#eae8e1] transition-all cursor-pointer select-none border border-neutral-200/60 shadow-2xs"
             >
-              <span>{mode}</span>
-              <ChevronDown
-                className={`w-3.5 h-3.5 text-neutral-600 transition-transform duration-150 ${
-                  isModeOpen ? 'rotate-180' : ''
-                }`}
-              />
+              <span>Auto</span>
+              <ChevronDown className="w-3.5 h-3.5 text-neutral-500 stroke-[2.2]" />
             </button>
-
-            {/* Mode Dropdown Menu */}
-            {isModeOpen && (
-              <div className="absolute right-0 bottom-full mb-3 w-64 bg-white rounded-2xl shadow-xl border border-neutral-200/90 p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
-                <div className="px-3 py-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-                  Select AI Ashokra Model
-                </div>
-                {MODES.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setMode(item.id);
-                      setIsModeOpen(false);
-                    }}
-                    className={`w-full flex items-start justify-between text-left px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer ${
-                      mode === item.id
-                        ? 'bg-neutral-100 text-neutral-900 font-medium'
-                        : 'text-neutral-700 hover:bg-neutral-50'
-                    }`}
+          ) : (
+            <button
+              id="mode-selector-btn"
+              type="button"
+              onClick={() => setIsChooseModelOpen(true)}
+              className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-[13px] font-normal text-neutral-800 hover:text-neutral-950 bg-[#f4f3ef] hover:bg-[#eae8e1] transition-all cursor-pointer select-none border border-neutral-200/60 shadow-2xs"
+            >
+              {/* Overlapping circular logos matching user reference screenshot */}
+              <div className="flex -space-x-1.5 overflow-hidden shrink-0 items-center">
+                {selectedModels.map((m) => (
+                  <div
+                    key={m.id}
+                    className="w-5 h-5 rounded-full bg-[#18181b] ring-1.5 ring-white flex items-center justify-center overflow-hidden shrink-0 shadow-2xs"
+                    title={m.name}
                   >
-                    <div>
-                      <div className="text-xs sm:text-sm font-medium text-neutral-900 flex items-center gap-1.5">
-                        {item.label}
-                        {item.id === 'Ashokra Ultra' && (
-                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                        )}
-                      </div>
-                      <div className="text-xs text-neutral-500 mt-0.5">
-                        {item.desc}
-                      </div>
-                    </div>
-                    {mode === item.id && (
-                      <Check className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                    )}
-                  </button>
+                    <img
+                      src={m.logo}
+                      alt={m.name}
+                      className="w-3.5 h-3.5 object-contain"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector('.fallback-model-char')) {
+                          const charSpan = document.createElement('span');
+                          charSpan.className = 'fallback-model-char text-[9px] text-white font-bold';
+                          charSpan.innerText = m.name[0];
+                          parent.appendChild(charSpan);
+                        }
+                      }}
+                    />
+                  </div>
                 ))}
               </div>
-            )}
-          </div>
+
+              {/* Model count label */}
+              <span className="font-normal text-neutral-800">
+                {selectedModelIds.length === 1 ? '1 model' : `${selectedModelIds.length} models`}
+              </span>
+
+              <ChevronDown className="w-3.5 h-3.5 text-neutral-500 stroke-[2.2]" />
+            </button>
+          )}
 
           {/* Microphone Button or Submit Arrow */}
           {value.trim() ? (
             <button
               id="prompt-submit-btn"
               type="button"
-              onClick={() => onSubmit(value, mode)}
+              onClick={() =>
+                onSubmit(value, isAutoMode ? 'Auto' : 'Ashokra Pro', selectedModelIds)
+              }
               title="Submit prompt"
               className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-900 hover:bg-black text-white flex items-center justify-center transition-transform active:scale-95 cursor-pointer shadow-xs"
             >
@@ -372,6 +363,19 @@ export const PromptBox: React.FC<PromptBoxProps> = ({
           )}
         </div>
       </div>
+
+      {/* Choose a Model Modal */}
+      <ChooseModelModal
+        isOpen={isChooseModelOpen}
+        onClose={() => setIsChooseModelOpen(false)}
+        isAutoMode={isAutoMode}
+        selectedModelIds={selectedModelIds}
+        onApply={(isAuto, modelIds) => {
+          setIsAutoMode(isAuto);
+          setSelectedModelIds(modelIds);
+        }}
+        onUpgradeRequired={onOpenUpgrade}
+      />
 
       {/* Voice listening status indicator */}
       {isRecording && (
