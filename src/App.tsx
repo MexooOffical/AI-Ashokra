@@ -189,6 +189,15 @@ export default function App() {
       <UpgradeModal
         isOpen={isUpgradeOpen}
         onClose={() => setIsUpgradeOpen(false)}
+        onSelectPlan={(planName) => {
+          const updatedUser = {
+            ...user,
+            plan: planName,
+            messagesLimit: planName === 'Pro' ? 100 : 30,
+          };
+          setUser(updatedUser);
+          syncUserProfile(updatedUser);
+        }}
       />
 
       <FirebaseConsoleModal
