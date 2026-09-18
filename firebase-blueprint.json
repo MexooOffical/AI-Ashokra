@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "prompts": {
+      "title": "Prompts",
+      "description": "User submitted prompts, model selection, and timestamps",
+      "properties": {
+        "text": { "type": "string", "description": "The prompt text entered by user" },
+        "mode": { "type": "string", "description": "Selected model/mode e.g. Auto, Ashokra Ultra" },
+        "createdAt": { "type": "string", "description": "ISO timestamp of creation" },
+        "userId": { "type": "string", "description": "Owner user identifier" },
+        "attachments": { "type": "array", "description": "Attached file names" }
+      },
+      "required": ["text", "createdAt"]
+    },
+    "users": {
+      "title": "Users",
+      "description": "User profile state and usage statistics",
+      "properties": {
+        "name": { "type": "string" },
+        "plan": { "type": "string" },
+        "messagesUsed": { "type": "number" },
+        "messagesLimit": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "plan"]
+    }
+  }
+}

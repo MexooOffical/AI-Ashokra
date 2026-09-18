@@ -1,0 +1,6 @@
+{
+  "name": "AI Ashokra",
+  "description": "The next-generation AI creative and research platform by AI Ashokra.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
