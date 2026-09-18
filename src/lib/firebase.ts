@@ -29,18 +29,69 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app, FIRESTORE_DATABASE_ID || '(default)');
 export const auth = getAuth(app);
 
-// Initialize anonymous auth session so the user has immediate read/write access
-export const initAuth = async (): Promise<User | null> => {
+// Safe persistent local user ID in case anonymous auth is throttled
+const getOrCreateLocalUserId = (): string => {
   try {
-    if (auth.currentUser) {
-      return auth.currentUser;
+    const key = 'ai_ashokra_user_id';
+    let id = localStorage.getItem(key);
+    if (!id) {
+      id = 'user_' + Math.random().toString(36).substring(2, 11);
+      localStorage.setItem(key, id);
     }
-    const cred = await signInAnonymously(auth);
-    return cred.user;
-  } catch (error) {
-    console.warn('Firebase anonymous auth fallback:', error);
+    return id;
+  } catch {
+    return 'default_user_1';
+  }
+};
+
+let authPromise: Promise<User | null> | null = null;
+let isThrottled = false;
+
+// Initialize anonymous auth session with throttling protection and cached session reuse
+export const initAuth = async (): Promise<User | null> => {
+  // If already authenticated, return current user immediately
+  if (auth.currentUser) {
+    return auth.currentUser;
+  }
+
+  // If already hit rate limit, do not repeat failing requests
+  if (isThrottled) {
     return null;
   }
+
+  // Avoid multiple simultaneous calls
+  if (authPromise) {
+    return authPromise;
+  }
+
+  authPromise = (async () => {
+    try {
+      // Check if auth state already has a user or changes shortly
+      const existingUser = await new Promise<User | null>((resolve) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+          unsubscribe();
+          resolve(user);
+        });
+        // Short timeout for cached token resolution
+        setTimeout(() => resolve(null), 350);
+      });
+
+      if (existingUser) {
+        return existingUser;
+      }
+
+      const cred = await signInAnonymously(auth);
+      return cred.user;
+    } catch (error: any) {
+      isThrottled = true;
+      // Anonymous authentication is optional; Firestore functions seamlessly via local user ID
+      return null;
+    } finally {
+      authPromise = null;
+    }
+  })();
+
+  return authPromise;
 };
 
 export interface SavedPrompt {
@@ -61,7 +112,7 @@ export const savePrompt = async (
   attachments: string[] = []
 ): Promise<string | null> => {
   try {
-    const userId = auth.currentUser?.uid || 'anonymous-user';
+    const userId = auth.currentUser?.uid || getOrCreateLocalUserId();
     const promptsCol = collection(db, 'prompts');
     const docRef = await addDoc(promptsCol, {
       text,
@@ -72,7 +123,13 @@ export const savePrompt = async (
     });
     return docRef.id;
   } catch (err) {
-    console.error('Error saving prompt to Firebase:', err);
+    // Graceful fallback to client-side storage so app never breaks
+    console.info('Firestore savePrompt fallback to local storage');
+    try {
+      const existing = JSON.parse(localStorage.getItem('ai_ashokra_local_prompts') || '[]');
+      existing.unshift({ text, mode, createdAt: Date.now() });
+      localStorage.setItem('ai_ashokra_local_prompts', JSON.stringify(existing.slice(0, 50)));
+    } catch {}
     return null;
   }
 };
@@ -90,8 +147,13 @@ export const getRecentPrompts = async (limitCount = 5): Promise<SavedPrompt[]> =
       ...(d.data() as Omit<SavedPrompt, 'id'>),
     }));
   } catch (err) {
-    console.warn('Could not fetch recent prompts from Firestore:', err);
-    return [];
+    // Fallback from localStorage
+    try {
+      const local = JSON.parse(localStorage.getItem('ai_ashokra_local_prompts') || '[]');
+      return local.slice(0, limitCount);
+    } catch {
+      return [];
+    }
   }
 };
 
@@ -100,7 +162,7 @@ export const getRecentPrompts = async (limitCount = 5): Promise<SavedPrompt[]> =
  */
 export const syncUserProfile = async (user: UserProfileData) => {
   try {
-    const userId = auth.currentUser?.uid || 'default-user';
+    const userId = auth.currentUser?.uid || getOrCreateLocalUserId();
     const userDocRef = doc(db, 'users', userId);
     await setDoc(
       userDocRef,
@@ -111,7 +173,7 @@ export const syncUserProfile = async (user: UserProfileData) => {
       { merge: true }
     );
   } catch (err) {
-    console.error('Error syncing user profile to Firestore:', err);
+    // Silent fallback
   }
 };
 
@@ -122,18 +184,23 @@ export const subscribeUserProfile = (
   userId: string,
   callback: (data: UserProfileData | null) => void
 ) => {
-  const userDocRef = doc(db, 'users', userId);
-  return onSnapshot(
-    userDocRef,
-    (snap) => {
-      if (snap.exists()) {
-        callback(snap.data() as UserProfileData);
-      } else {
-        callback(null);
+  try {
+    const targetId = userId || getOrCreateLocalUserId();
+    const userDocRef = doc(db, 'users', targetId);
+    return onSnapshot(
+      userDocRef,
+      (snap) => {
+        if (snap.exists()) {
+          callback(snap.data() as UserProfileData);
+        } else {
+          callback(null);
+        }
+      },
+      (err) => {
+        // Silent snapshot error handling
       }
-    },
-    (err) => {
-      console.warn('User profile snapshot error:', err);
-    }
-  );
+    );
+  } catch {
+    return () => {};
+  }
 };

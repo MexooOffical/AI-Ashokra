@@ -3,15 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Menu, Flame } from 'lucide-react';
 import { Sidebar } from './components/layout/Sidebar';
 import { HomePage } from './components/home/HomePage';
+import { ChatInterface } from './components/chat/ChatInterface';
 import { SearchModal } from './components/common/SearchModal';
 import { UpgradeModal } from './components/common/UpgradeModal';
 import { FirebaseConsoleModal } from './components/common/FirebaseConsoleModal';
-import { NavItemId, UserProfileData } from './types';
+import { NavItemId, UserProfileData, ChatMessage, ChatSession, PromptMode } from './types';
 import { initAuth, syncUserProfile } from './lib/firebase';
+import { streamOpenRouterChat } from './lib/openrouter';
 
 export default function App() {
   const [activeNavId, setActiveNavId] = useState<NavItemId>('new-chat');
@@ -23,6 +25,19 @@ export default function App() {
   const [isFirebaseConnected, setIsFirebaseConnected] = useState(true);
   const [savedPromptsCount, setSavedPromptsCount] = useState(0);
 
+  // Chat sessions state
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // Active chat session object
+  const activeSession = chatSessions.find((s) => s.id === activeChatId);
+  const messages = activeSession?.messages || [];
+
+  // Active models & mode state
+  const [currentAutoMode, setCurrentAutoMode] = useState(true);
+  const [currentSelectedModelIds, setCurrentSelectedModelIds] = useState<string[]>([]);
+
   // User state corresponding to reference screenshot
   const [user, setUser] = useState<UserProfileData>({
     name: 'Spectar',
@@ -33,18 +48,20 @@ export default function App() {
     messagesLimit: 10,
   });
 
-  // Initialize Firebase anonymous auth session and sync user profile to Firestore
+  // Initialize Firebase anonymous auth session once on mount and sync user profile
   useEffect(() => {
     initAuth()
       .then((u) => {
         if (u) {
           setIsFirebaseConnected(true);
-          syncUserProfile(user);
         }
       })
-      .catch((err) => {
-        console.warn('Firebase init:', err);
-      });
+      .catch(() => {});
+  }, []);
+
+  // Sync user profile when user changes
+  useEffect(() => {
+    syncUserProfile(user);
   }, [user]);
 
   // Global keyboard shortcut: Ctrl+K or Cmd+K to open search
@@ -58,6 +75,200 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Send message and execute OpenRouter streaming
+  const handleStartOrSendMessage = async (
+    prompt: string,
+    mode?: PromptMode,
+    modelIds?: string[]
+  ) => {
+    if (!prompt.trim() || isGenerating) return;
+
+    let sessionId = activeChatId;
+
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: prompt,
+      timestamp: Date.now(),
+    };
+
+    const assistantPlaceholderId = `assistant-${Date.now() + 1}`;
+    const assistantMessage: ChatMessage = {
+      id: assistantPlaceholderId,
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now() + 1,
+      modelName: currentAutoMode ? 'Auto Mode' : 'Selected Model',
+      isFindingModel: true,
+      isStreaming: true,
+    };
+
+    if (!sessionId) {
+      // Create a brand new session
+      const newSession: ChatSession = {
+        id: `chat-${Date.now()}`,
+        title: prompt.slice(0, 30),
+        createdAt: Date.now(),
+        messages: [userMessage, assistantMessage],
+        selectedModelIds: modelIds || currentSelectedModelIds,
+        isAutoMode: currentAutoMode,
+      };
+      sessionId = newSession.id;
+      setChatSessions((prev) => [newSession, ...prev]);
+      setActiveChatId(newSession.id);
+    } else {
+      // Append to existing session
+      setChatSessions((prev) =>
+        prev.map((s) =>
+          s.id === sessionId
+            ? { ...s, messages: [...s.messages, userMessage, assistantMessage] }
+            : s
+        )
+      );
+    }
+
+    setIsGenerating(true);
+
+    // Increment user usage counter
+    setUser((prev) => {
+      const updated = {
+        ...prev,
+        messagesUsed: Math.min(prev.messagesLimit, prev.messagesUsed + 1),
+      };
+      syncUserProfile(updated);
+      return updated;
+    });
+
+    // "Finding the best model to answer..." transition delay (600ms) to match screenshot UI
+    setTimeout(async () => {
+      // Update isFindingModel to false
+      setChatSessions((prev) =>
+        prev.map((s) => {
+          if (s.id !== sessionId) return s;
+          return {
+            ...s,
+            messages: s.messages.map((m) =>
+              m.id === assistantPlaceholderId
+                ? { ...m, isFindingModel: false }
+                : m
+            ),
+          };
+        })
+      );
+
+      // Call OpenRouter streaming
+      try {
+        const targetModelId =
+          modelIds && modelIds.length > 0
+            ? modelIds[0]
+            : currentSelectedModelIds[0] || 'deepseek-chat';
+
+        const history = (
+          activeSession?.messages.filter(
+            (m) => m.id !== userMessage.id && m.id !== assistantPlaceholderId
+          ) || []
+        ).map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+
+        await streamOpenRouterChat(prompt, history, targetModelId, {
+          onChunk: (chunk) => {
+            setChatSessions((prev) =>
+              prev.map((s) => {
+                if (s.id !== sessionId) return s;
+                return {
+                  ...s,
+                  messages: s.messages.map((m) =>
+                    m.id === assistantPlaceholderId
+                      ? { ...m, content: m.content + chunk }
+                      : m
+                  ),
+                };
+              })
+            );
+          },
+          onDone: (fullText) => {
+            setChatSessions((prev) =>
+              prev.map((s) => {
+                if (s.id !== sessionId) return s;
+                return {
+                  ...s,
+                  messages: s.messages.map((m) =>
+                    m.id === assistantPlaceholderId
+                      ? { ...m, content: fullText, isStreaming: false, isFindingModel: false }
+                      : m
+                  ),
+                };
+              })
+            );
+            setIsGenerating(false);
+          },
+          onError: (err) => {
+            setChatSessions((prev) =>
+              prev.map((s) => {
+                if (s.id !== sessionId) return s;
+                return {
+                  ...s,
+                  messages: s.messages.map((m) =>
+                    m.id === assistantPlaceholderId
+                      ? {
+                          ...m,
+                          content:
+                            m.content ||
+                            'I am currently experiencing a connection issue with OpenRouter. Please verify the network or API key.',
+                          isStreaming: false,
+                          isFindingModel: false,
+                        }
+                      : m
+                  ),
+                };
+              })
+            );
+            setIsGenerating(false);
+          },
+        });
+      } catch (e) {
+        setIsGenerating(false);
+      }
+    }, 700);
+  };
+
+  const handleLikeMessage = (messageId: string) => {
+    if (!activeChatId) return;
+    setChatSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== activeChatId) return s;
+        return {
+          ...s,
+          messages: s.messages.map((m) =>
+            m.id === messageId ? { ...m, liked: !m.liked, disliked: false } : m
+          ),
+        };
+      })
+    );
+  };
+
+  const handleDislikeMessage = (messageId: string) => {
+    if (!activeChatId) return;
+    setChatSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== activeChatId) return s;
+        return {
+          ...s,
+          messages: s.messages.map((m) =>
+            m.id === messageId ? { ...m, disliked: !m.disliked, liked: false } : m
+          ),
+        };
+      })
+    );
+  };
+
+  const handleNewChat = () => {
+    setActiveChatId(null);
+    setActiveNavId('new-chat');
+  };
 
   return (
     <div className="min-h-screen bg-[#fafaf9] text-neutral-900 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
@@ -106,13 +317,27 @@ export default function App() {
           activeNavId={activeNavId}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          onNavSelect={(id) => setActiveNavId(id)}
+          onNavSelect={(id) => {
+            setActiveNavId(id);
+            if (id === 'new-chat') {
+              setActiveChatId(null);
+            }
+          }}
           onOpenSearch={() => setIsSearchOpen(true)}
           onOpenUpgrade={() => setIsUpgradeOpen(true)}
           onOpenFirebase={() => setIsFirebaseOpen(true)}
           user={user}
           isMobileOpen={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
+          chatHistory={chatSessions.map((c) => ({
+            id: c.id,
+            title: c.title,
+          }))}
+          activeChatId={activeChatId}
+          onSelectChat={(id) => {
+            setActiveChatId(id);
+            setActiveNavId('new-chat');
+          }}
         />
 
         {/* Content View with dynamic left offset matching sidebar width */}
@@ -121,24 +346,31 @@ export default function App() {
             isSidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[260px]'
           }`}
         >
-          {activeNavId === 'new-chat' ? (
+          {activeNavId === 'new-chat' && !activeChatId ? (
             <HomePage
               userName={user.name}
               onNavigateTo={(section) => setActiveNavId(section as NavItemId)}
-              onPromptSaved={(count) => {
-                setSavedPromptsCount(count);
-                // Increment messages used on user profile
-                setUser((prev) => {
-                  const updated = {
-                    ...prev,
-                    messagesUsed: Math.min(prev.messagesLimit, prev.messagesUsed + 1),
-                  };
-                  syncUserProfile(updated);
-                  return updated;
-                });
-              }}
+              onPromptSaved={(count) => setSavedPromptsCount(count)}
               onOpenFirebaseModal={() => setIsFirebaseOpen(true)}
               onOpenUpgradeModal={() => setIsUpgradeOpen(true)}
+              onStartChat={(prompt, mode, selectedModels) => {
+                handleStartOrSendMessage(prompt, mode, selectedModels);
+              }}
+            />
+          ) : activeNavId === 'new-chat' && activeChatId ? (
+            <ChatInterface
+              messages={messages}
+              isLoading={isGenerating}
+              onSendMessage={(txt) => handleStartOrSendMessage(txt)}
+              selectedModelIds={currentSelectedModelIds}
+              isAutoMode={currentAutoMode}
+              onModelChange={(auto, ids) => {
+                setCurrentAutoMode(auto);
+                setCurrentSelectedModelIds(ids);
+              }}
+              onOpenUpgrade={() => setIsUpgradeOpen(true)}
+              onLike={handleLikeMessage}
+              onDislike={handleDislikeMessage}
             />
           ) : (
             /* Ready studio container for subsequent modules */
@@ -160,18 +392,10 @@ export default function App() {
                 <div className="flex items-center justify-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsFirebaseOpen(true)}
-                    className="text-xs font-medium px-3.5 py-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer flex items-center gap-1.5"
+                    onClick={handleNewChat}
+                    className="px-4 py-2 bg-neutral-900 text-white rounded-full text-xs font-medium hover:bg-black transition-colors"
                   >
-                    <Flame className="w-3.5 h-3.5 text-amber-600" />
-                    <span>View Firestore</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveNavId('new-chat')}
-                    className="text-xs font-medium px-4 py-2 rounded-xl bg-neutral-900 hover:bg-black text-white transition-colors cursor-pointer"
-                  >
-                    Return to New Chat
+                    Back to Chat
                   </button>
                 </div>
               </div>
@@ -184,21 +408,15 @@ export default function App() {
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-        onSelectNav={(id) => setActiveNavId(id)}
+        onSelectNav={(id: NavItemId) => {
+          setActiveNavId(id);
+          setIsSearchOpen(false);
+        }}
       />
 
       <UpgradeModal
         isOpen={isUpgradeOpen}
         onClose={() => setIsUpgradeOpen(false)}
-        onSelectPlan={(planName) => {
-          const updatedUser = {
-            ...user,
-            plan: planName,
-            messagesLimit: planName === 'Pro' ? 100 : 30,
-          };
-          setUser(updatedUser);
-          syncUserProfile(updatedUser);
-        }}
       />
 
       <FirebaseConsoleModal

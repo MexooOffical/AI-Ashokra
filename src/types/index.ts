@@ -46,3 +46,24 @@ export interface AIModel {
   multiplier?: string;
   category?: 'popular' | 'intelligent' | 'latest';
 }
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  modelName?: string;
+  isFindingModel?: boolean;
+  isStreaming?: boolean;
+  liked?: boolean;
+  disliked?: boolean;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: number;
+  messages: ChatMessage[];
+  selectedModelIds?: string[];
+  isAutoMode?: boolean;
+}

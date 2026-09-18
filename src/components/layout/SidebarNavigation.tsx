@@ -4,6 +4,8 @@ import {
   Image as ImageIcon,
   Clapperboard,
   Folder,
+  Sun,
+  Columns,
 } from 'lucide-react';
 import { NavItemId } from '../../types';
 
@@ -58,28 +60,24 @@ const LibraryIcon: React.FC<{ className?: string }> = ({ className }) => (
     <line x1="4" y1="16" x2="8.5" y2="16" />
     {/* Second slightly tilted book */}
     <rect x="11" y="4" width="4.5" height="16" rx="1" transform="rotate(7 13.25 12)" />
-    <line x1="12" y1="8.5" x2="16.5" y2="9.2" />
-    <line x1="11" y1="16.5" x2="15.5" y2="17.2" />
+    <line x1="11" y1="9" x2="15.5" y2="9" transform="rotate(7 13.25 12)" />
+    {/* Shelf line */}
+    <line x1="2" y1="21" x2="22" y2="21" strokeWidth="2" />
   </svg>
 );
 
-interface NavConfig {
+interface NavItemConfig {
   id: NavItemId;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
 }
 
-const NAV_ITEMS: NavConfig[] = [
+const NAV_ITEMS: NavItemConfig[] = [
   {
     id: 'new-chat',
     label: 'New Chat',
     icon: SquarePen,
-  },
-  {
-    id: 'image-studio',
-    label: 'Image Studio',
-    icon: ImageIcon,
   },
   {
     id: 'video-studio',
@@ -109,16 +107,28 @@ const NAV_ITEMS: NavConfig[] = [
   },
 ];
 
+export interface ChatHistoryItem {
+  id: string;
+  title: string;
+  dateStr?: string;
+}
+
 interface SidebarNavigationProps {
   activeId: NavItemId;
   isCollapsed: boolean;
   onSelect: (id: NavItemId) => void;
+  chatHistory?: ChatHistoryItem[];
+  activeChatId?: string | null;
+  onSelectChat?: (id: string) => void;
 }
 
 export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
   activeId,
   isCollapsed,
   onSelect,
+  chatHistory = [],
+  activeChatId,
+  onSelectChat,
 }) => {
   return (
     <nav
@@ -126,9 +136,10 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
       aria-label="Main Navigation"
       className="flex flex-col gap-1 px-3 py-2 flex-1 overflow-y-auto"
     >
+      {/* Top Main Navigation Items */}
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
-        const isActive = activeId === item.id;
+        const isActive = activeId === item.id && !activeChatId;
 
         return (
           <button
@@ -140,7 +151,7 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
             className={`group relative flex items-center w-full transition-all duration-150 cursor-pointer select-none ${
               isCollapsed
                 ? 'justify-center p-2.5 rounded-xl'
-                : 'px-3.5 py-2.5 gap-3.5 justify-between rounded-[20px]'
+                : 'px-3 py-2 gap-3.5 justify-between rounded-[18px]'
             } ${
               isActive
                 ? 'bg-[#ece9e2] text-neutral-900 font-medium'
@@ -149,7 +160,7 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
           >
             <div className="flex items-center gap-3.5 min-w-0">
               <Icon
-                className={`w-[19px] h-[19px] shrink-0 ${
+                className={`w-[18px] h-[18px] shrink-0 ${
                   isActive
                     ? 'text-neutral-900 stroke-[1.8]'
                     : 'text-neutral-600 group-hover:text-neutral-900 stroke-[1.6]'
@@ -157,7 +168,7 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
               />
 
               {!isCollapsed && (
-                <span className="text-[15px] truncate leading-tight tracking-tight">
+                <span className="text-[14px] truncate leading-tight tracking-tight">
                   {item.label}
                 </span>
               )}
@@ -166,7 +177,7 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
             {!isCollapsed && item.badge && (
               <span
                 id={`badge-${item.id}`}
-                className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-[#eceae6] text-neutral-600 border border-neutral-300/40"
+                className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-[#eceae6] text-neutral-600 border border-neutral-300/40"
               >
                 {item.badge}
               </span>
@@ -181,6 +192,43 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
           </button>
         );
       })}
+
+      {/* History section matching screenshot */}
+      {!isCollapsed && chatHistory.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-neutral-100">
+          <div className="px-3 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">
+            History
+          </div>
+          <div className="px-3 text-[10px] text-neutral-400 mb-2">
+            Today
+          </div>
+
+          <div className="flex flex-col gap-0.5">
+            {chatHistory.map((chat, idx) => {
+              const isSelected = activeChatId === chat.id;
+              // Alternate subtle icons: Sun and Columns matching screenshot
+              const HistoryIcon = idx % 2 === 0 ? Sun : Columns;
+
+              return (
+                <button
+                  key={chat.id}
+                  type="button"
+                  onClick={() => onSelectChat?.(chat.id)}
+                  title={chat.title}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs sm:text-[13px] transition-colors cursor-pointer select-none group ${
+                    isSelected
+                      ? 'bg-[#ece9e2] text-neutral-900 font-medium'
+                      : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/60'
+                  }`}
+                >
+                  <HistoryIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-600 shrink-0" />
+                  <span className="truncate flex-1">{chat.title}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </nav>
   );
 };

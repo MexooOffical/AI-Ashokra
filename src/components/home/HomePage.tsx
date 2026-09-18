@@ -12,6 +12,7 @@ interface HomePageProps {
   onPromptSaved?: (count: number) => void;
   onOpenFirebaseModal?: () => void;
   onOpenUpgradeModal?: () => void;
+  onStartChat?: (prompt: string, mode: PromptMode, selectedModels?: string[]) => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
@@ -19,6 +20,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   onPromptSaved,
   onOpenFirebaseModal,
   onOpenUpgradeModal,
+  onStartChat,
 }) => {
   // Empty default prompt so placeholder appears clean
   const [promptText, setPromptText] = useState('');
@@ -56,24 +58,11 @@ export const HomePage: React.FC<HomePageProps> = ({
     selectedModels?: string[]
   ) => {
     // Save to Cloud Firestore
-    const docId = await savePrompt(prompt, mode);
-    if (docId) {
-      setSavedCount((prev) => {
-        const next = prev + 1;
-        onPromptSaved?.(next);
-        return next;
-      });
-      const modelsText =
-        selectedModels && selectedModels.length > 0
-          ? ` (${selectedModels.length} models)`
-          : '';
-      showNotification(`Saved prompt to Firestore${modelsText}`, true, docId);
-    } else {
-      const modelsText =
-        selectedModels && selectedModels.length > 0
-          ? ` (${selectedModels.length} models)`
-          : ` (${mode})`;
-      showNotification(`Prompt ready${modelsText}: "${prompt.slice(0, 45)}..."`);
+    savePrompt(prompt, mode).catch(() => {});
+
+    // Delegate immediately to chat conversation stream
+    if (onStartChat) {
+      onStartChat(prompt, mode, selectedModels);
     }
   };
 

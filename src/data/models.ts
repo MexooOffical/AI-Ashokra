@@ -1,5 +1,17 @@
 import { AIModel } from '../types';
 
+// OpenRouter supported models mapping
+export const OPENROUTER_MODEL_IDS: Record<string, string> = {
+  'deepseek-chat': 'deepseek/deepseek-chat',
+  'gpt-5-4-nano': 'openai/gpt-4o-mini',
+  'gemini-3-1-flash-lite': 'google/gemini-2.0-flash-lite-001',
+  'claude-opus-5': 'anthropic/claude-3.5-sonnet',
+  'ministral-3-3b': 'mistralai/mistral-7b-instruct',
+  'kimi-k3': 'moonshotai/moonshot-v1-8k',
+  'gpt-5-4-mini': 'openai/gpt-4o-mini',
+  'qwen-3-5': 'qwen/qwen-2.5-72b-instruct',
+};
+
 // Exact 8 models in the exact order shown in user screenshot
 export const AVAILABLE_MODELS: AIModel[] = [
   // Left column row 1

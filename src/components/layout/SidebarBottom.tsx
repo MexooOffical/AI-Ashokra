@@ -7,9 +7,7 @@ import {
   ToggleLeft,
   BookOpen,
   Terminal,
-  Box,
   LogOut,
-  ExternalLink,
 } from 'lucide-react';
 import { UserProfileData } from '../../types';
 
@@ -56,7 +54,7 @@ export const SidebarBottom: React.FC<SidebarBottomProps> = ({
     <div id="sidebar-bottom" className="mt-auto relative" ref={containerRef}>
       {!isCollapsed ? (
         <>
-          {/* Subtle horizontal divider line separating nav list from bottom section */}
+          {/* Subtle horizontal divider line */}
           <div className="w-full border-t border-neutral-200/60 mb-2.5" />
 
           {/* Main Card Container with smooth upward expansion */}
@@ -105,7 +103,7 @@ export const SidebarBottom: React.FC<SidebarBottomProps> = ({
                   <span>Upgrade Now</span>
                 </button>
 
-                {/* Navigation items list matching the exact screenshot */}
+                {/* Navigation items list */}
                 <div className="space-y-1 text-[13px] sm:text-[14px] text-neutral-700">
                   {/* Settings */}
                   <button
@@ -151,19 +149,6 @@ export const SidebarBottom: React.FC<SidebarBottomProps> = ({
                   >
                     <Terminal className="w-4 h-4 text-neutral-500 stroke-[1.8]" />
                     <span>PromptBook</span>
-                  </button>
-
-                  {/* Get AI APIs with Mesh */}
-                  <button
-                    type="button"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="w-full flex items-center justify-between py-2 px-1 text-left hover:text-neutral-900 transition-colors cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Box className="w-4 h-4 text-[#8b5cf6] stroke-[1.8]" />
-                      <span>Get AI APIs with Mesh</span>
-                    </div>
-                    <ExternalLink className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-600 stroke-[1.8]" />
                   </button>
 
                   {/* Divider */}

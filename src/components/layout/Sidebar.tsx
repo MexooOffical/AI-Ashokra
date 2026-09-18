@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavItemId, UserProfileData } from '../../types';
 import { SidebarHeader } from './SidebarHeader';
-import { SidebarNavigation } from './SidebarNavigation';
+import { SidebarNavigation, ChatHistoryItem } from './SidebarNavigation';
 import { SidebarBottom } from './SidebarBottom';
 
 interface SidebarProps {
@@ -15,6 +15,9 @@ interface SidebarProps {
   user: UserProfileData;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
+  chatHistory?: ChatHistoryItem[];
+  activeChatId?: string | null;
+  onSelectChat?: (id: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,6 +31,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   user,
   isMobileOpen,
   onCloseMobile,
+  chatHistory,
+  activeChatId,
+  onSelectChat,
 }) => {
   return (
     <>
@@ -64,6 +70,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onNavSelect(id);
             if (isMobileOpen) onCloseMobile();
           }}
+          chatHistory={chatHistory}
+          activeChatId={activeChatId}
+          onSelectChat={onSelectChat}
         />
 
         <SidebarBottom
