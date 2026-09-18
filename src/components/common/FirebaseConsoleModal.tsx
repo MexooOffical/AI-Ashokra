@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   ExternalLink,
@@ -7,12 +7,18 @@ import {
   Check,
   Copy,
   Flame,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   FIREBASE_PROJECT_ID,
   FIRESTORE_DATABASE_ID,
   FIREBASE_CONSOLE_URL,
   FIRESTORE_CONSOLE_URL,
+  FIRESTORE_UPGRADE_URL,
+  FIRESTORE_PRICING_URL,
+  isFirestoreQuotaExceeded,
+  subscribeQuotaStatus,
+  QuotaStatus,
 } from '../../lib/firebase';
 
 interface FirebaseConsoleModalProps {
@@ -29,6 +35,15 @@ export const FirebaseConsoleModal: React.FC<FirebaseConsoleModalProps> = ({
   savedPromptsCount,
 }) => {
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const [quotaStatus, setQuotaStatus] = useState<QuotaStatus>({
+    isExceeded: isFirestoreQuotaExceeded(),
+  });
+
+  useEffect(() => {
+    return subscribeQuotaStatus((status) => {
+      setQuotaStatus(status);
+    });
+  }, []);
 
   if (!isOpen) return null;
 
@@ -82,6 +97,42 @@ export const FirebaseConsoleModal: React.FC<FirebaseConsoleModalProps> = ({
           </div>
         </div>
 
+        {/* Quota Limit Warning (if reached) */}
+        {quotaStatus.isExceeded && (
+          <div className="mb-4 p-3.5 bg-amber-50/90 rounded-2xl border border-amber-200/90 text-amber-950 text-xs">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold block text-amber-900 mb-0.5">
+                  Free Daily Write Quota Reached
+                </span>
+                <p className="text-amber-800 text-[11px] leading-relaxed">
+                  The free tier daily write units limit has been reached. Quota will automatically reset tomorrow. The app is running smoothly using offline local storage in the meantime.
+                </p>
+                <div className="mt-2.5 flex items-center gap-3">
+                  <a
+                    href={FIRESTORE_UPGRADE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-semibold text-amber-900 hover:text-black underline text-xs"
+                  >
+                    <span>Upgrade in Firebase Console</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <a
+                    href={FIRESTORE_PRICING_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-700 hover:text-amber-900 text-xs"
+                  >
+                    Pricing & Quotas
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Access Links Box */}
         <div className="space-y-3 mt-4">
           <div className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-200/80">
@@ -111,15 +162,26 @@ export const FirebaseConsoleModal: React.FC<FirebaseConsoleModalProps> = ({
             <p className="text-[11px] font-mono text-neutral-600 truncate mb-2 select-all bg-white p-2 rounded-lg border border-neutral-200/60">
               {FIRESTORE_CONSOLE_URL}
             </p>
-            <a
-              href={FIRESTORE_CONSOLE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 transition-colors"
-            >
-              <span>Open Firestore in Firebase Console</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+            <div className="flex items-center gap-4">
+              <a
+                href={FIRESTORE_CONSOLE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 transition-colors"
+              >
+                <span>Open Firestore in Firebase Console</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+              <a
+                href={FIRESTORE_UPGRADE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 hover:text-amber-800 transition-colors"
+              >
+                <span>Open Upgrade Dialog</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
 
           <div className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-200/80">

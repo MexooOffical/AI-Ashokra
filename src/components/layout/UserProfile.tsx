@@ -7,6 +7,7 @@ interface UserProfileProps {
   isCollapsed: boolean;
   onOpenUpgrade?: () => void;
   onOpenFirebase?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({
@@ -14,6 +15,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   isCollapsed,
   onOpenUpgrade,
   onOpenFirebase,
+  onOpenSettings,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -71,7 +73,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                setIsOpen(false);
+                onOpenSettings?.();
+              }}
               className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs sm:text-[13px] text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 rounded-xl transition-colors cursor-pointer"
             >
               <Settings className="w-4 h-4 text-neutral-500" />

@@ -4,15 +4,25 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, Flame } from 'lucide-react';
+import { Menu, Flame, AlertTriangle, X, ExternalLink } from 'lucide-react';
 import { Sidebar } from './components/layout/Sidebar';
 import { HomePage } from './components/home/HomePage';
 import { ChatInterface } from './components/chat/ChatInterface';
 import { SearchModal } from './components/common/SearchModal';
 import { UpgradeModal } from './components/common/UpgradeModal';
 import { FirebaseConsoleModal } from './components/common/FirebaseConsoleModal';
+import { SettingsModal } from './components/common/SettingsModal';
 import { NavItemId, UserProfileData, ChatMessage, ChatSession, PromptMode } from './types';
-import { initAuth, syncUserProfile } from './lib/firebase';
+import {
+  initAuth,
+  syncUserProfile,
+  testConnection,
+  subscribeQuotaStatus,
+  QuotaStatus,
+  getStoredUserProfile,
+  FIRESTORE_UPGRADE_URL,
+  FIRESTORE_PRICING_URL,
+} from './lib/firebase';
 import { streamOpenRouterChat } from './lib/openrouter';
 
 export default function App() {
@@ -22,8 +32,12 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [isFirebaseOpen, setIsFirebaseOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState(true);
   const [savedPromptsCount, setSavedPromptsCount] = useState(0);
+  const [quotaStatus, setQuotaStatus] = useState<QuotaStatus>({ isExceeded: false });
+  const [isQuotaBannerDismissed, setIsQuotaBannerDismissed] = useState(false);
+  const isInitialUserMount = useRef(true);
 
   // Chat sessions state
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
@@ -45,17 +59,26 @@ export default function App() {
   const activeSessionIdRef = useRef<string | null>(null);
 
   // User state corresponding to reference screenshot
-  const [user, setUser] = useState<UserProfileData>({
-    name: 'Spectar',
-    plan: 'Free',
-    avatarLetter: 'S',
-    avatarColor: '#10b981',
-    messagesUsed: 6,
-    messagesLimit: 10,
+  const [user, setUser] = useState<UserProfileData>(() => {
+    const stored = getStoredUserProfile();
+    if (stored) return stored;
+    return {
+      name: 'Spectar',
+      plan: 'Free',
+      avatarLetter: 'S',
+      avatarColor: '#10b981',
+      messagesUsed: 6,
+      messagesLimit: 10,
+    };
   });
 
-  // Initialize Firebase anonymous auth session once on mount and sync user profile
+  // Initialize Firebase anonymous auth session once on mount, test connection, and monitor quota
   useEffect(() => {
+    testConnection();
+    const unsub = subscribeQuotaStatus((status) => {
+      setQuotaStatus(status);
+    });
+
     initAuth()
       .then((u) => {
         if (u) {
@@ -63,10 +86,18 @@ export default function App() {
         }
       })
       .catch(() => {});
+
+    return () => {
+      unsub();
+    };
   }, []);
 
-  // Sync user profile when user changes
+  // Sync user profile when user changes (skipping initial mount)
   useEffect(() => {
+    if (isInitialUserMount.current) {
+      isInitialUserMount.current = false;
+      return;
+    }
     syncUserProfile(user);
   }, [user]);
 
@@ -402,6 +433,7 @@ export default function App() {
           onOpenSearch={() => setIsSearchOpen(true)}
           onOpenUpgrade={() => setIsUpgradeOpen(true)}
           onOpenFirebase={() => setIsFirebaseOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
           user={user}
           isMobileOpen={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
@@ -422,6 +454,40 @@ export default function App() {
             isSidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[260px]'
           }`}
         >
+          {/* Quota Exceeded Notice Banner */}
+          {quotaStatus.isExceeded && !isQuotaBannerDismissed && (
+            <div
+              id="firestore-quota-banner"
+              className="bg-amber-50/95 border-b border-amber-200/90 px-4 py-2.5 flex flex-wrap items-center justify-between text-xs text-amber-950 z-20 sticky top-0 backdrop-blur-xs gap-2"
+            >
+              <div className="flex items-center gap-2 max-w-2xl">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  <strong>Firestore Daily Write Quota Reached:</strong> Operating safely in local storage mode until quota resets tomorrow.
+                </span>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <a
+                  href={FIRESTORE_UPGRADE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-semibold text-amber-900 hover:text-black underline"
+                >
+                  <span>Upgrade Database</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setIsQuotaBannerDismissed(true)}
+                  className="p-1 text-amber-700 hover:text-amber-950 rounded cursor-pointer"
+                  aria-label="Dismiss notice"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {activeNavId === 'new-chat' && !activeChatId ? (
             <HomePage
               userName={user.name}
@@ -501,6 +567,14 @@ export default function App() {
         onClose={() => setIsFirebaseOpen(false)}
         isConnected={isFirebaseConnected}
         savedPromptsCount={savedPromptsCount}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        user={user}
+        onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
+        onOpenUpgrade={() => setIsUpgradeOpen(true)}
       />
     </div>
   );

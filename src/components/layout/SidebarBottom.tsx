@@ -16,6 +16,7 @@ interface SidebarBottomProps {
   isCollapsed: boolean;
   onUpgradeClick: () => void;
   onOpenFirebase?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const SidebarBottom: React.FC<SidebarBottomProps> = ({
@@ -23,6 +24,7 @@ export const SidebarBottom: React.FC<SidebarBottomProps> = ({
   isCollapsed,
   onUpgradeClick,
   onOpenFirebase,
+  onOpenSettings,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -108,7 +110,11 @@ export const SidebarBottom: React.FC<SidebarBottomProps> = ({
                   {/* Settings */}
                   <button
                     type="button"
-                    onClick={() => setIsMenuOpen(false)}
+                    id="menu-settings-btn"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onOpenSettings?.();
+                    }}
                     className="w-full flex items-center gap-3 py-2 px-1 text-left hover:text-neutral-900 transition-colors cursor-pointer"
                   >
                     <Settings className="w-4 h-4 text-neutral-500 stroke-[1.8]" />
@@ -118,7 +124,11 @@ export const SidebarBottom: React.FC<SidebarBottomProps> = ({
                   {/* AI Preferences */}
                   <button
                     type="button"
-                    onClick={() => setIsMenuOpen(false)}
+                    id="menu-preferences-btn"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onOpenSettings?.();
+                    }}
                     className="w-full flex items-center gap-3 py-2 px-1 text-left hover:text-neutral-900 transition-colors cursor-pointer"
                   >
                     <ToggleLeft className="w-4 h-4 text-neutral-500 stroke-[1.8]" />
