@@ -78,9 +78,12 @@ export const PromptBox: React.FC<PromptBoxProps> = ({
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setAttachedFiles((files) => [...files, file.name]);
+    const files = Array.from(event.target.files || []);
+    if (files.length > 0) {
+      setAttachedFiles((previousFiles) => [
+        ...previousFiles,
+        ...files.map((file) => file.name),
+      ]);
       setIsAttachOpen(false);
       event.target.value = '';
     }
@@ -101,60 +104,43 @@ export const PromptBox: React.FC<PromptBoxProps> = ({
               {activeFeature === 'Compare' && <Columns3 className="w-4 h-4 text-emerald-600" />}
               {activeFeature === 'Deep Research' && <Atom className="w-4 h-4 text-emerald-600" />}
               <span>{activeFeature} Active</span>
-              <button type="button" onClick={() => setActiveFeature(null)} className="text-emerald-500 hover:text-emerald-800 ml-0.5 cursor-pointer font-bold" aria-label={`Remove ${activeFeature}`}>
-                ×
-              </button>
+              <button type="button" onClick={() => setActiveFeature(null)} className="text-emerald-500 hover:text-emerald-800 ml-0.5 cursor-pointer font-bold" aria-label={`Remove ${activeFeature}`}>×</button>
             </span>
           )}
           {attachedFiles.map((file, index) => (
             <span key={`${file}-${index}`} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-neutral-200 text-xs sm:text-[13px] text-neutral-700 shadow-2xs animate-in fade-in">
               <Paperclip className="w-3.5 h-3.5 text-neutral-400" />
               <span className="max-w-[160px] truncate">{file}</span>
-              <button type="button" onClick={() => setAttachedFiles((files) => files.filter((_, i) => i !== index))} className="text-neutral-400 hover:text-neutral-700 ml-0.5 cursor-pointer font-bold" aria-label={`Remove ${file}`}>
-                ×
-              </button>
+              <button type="button" onClick={() => setAttachedFiles((files) => files.filter((_, i) => i !== index))} className="text-neutral-400 hover:text-neutral-700 ml-0.5 cursor-pointer font-bold" aria-label={`Remove ${file}`}>×</button>
             </span>
           ))}
         </div>
       )}
 
       <div id="prompt-box" className="relative bg-white rounded-full border border-neutral-200/90 shadow-[0_4px_24px_rgba(0,0,0,0.06),0_1px_4px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] focus-within:shadow-[0_10px_36px_rgba(16,185,129,0.12),0_2px_8px_rgba(0,0,0,0.04)] focus-within:border-emerald-400/80 transition-all duration-200 px-3.5 sm:px-5 py-3 sm:py-3.5 min-h-[58px] sm:min-h-[64px] flex items-center gap-2 sm:gap-3">
-        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} />
+        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
 
         <div className="relative shrink-0" ref={attachMenuRef}>
           <button
             id="attach-button"
             type="button"
-            onClick={() => setIsAttachOpen((open) => !open)}
-            title={isAttachOpen ? 'Close menu' : 'Attach files and tools'}
-            aria-label={isAttachOpen ? 'Close menu' : 'Attach files and tools'}
-            aria-expanded={isAttachOpen}
-            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer shrink-0 ${isAttachOpen ? 'bg-neutral-150 text-neutral-900 shadow-inner' : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100'}`}
+            onClick={() => fileInputRef.current?.click()}
+            title="Add images"
+            aria-label="Add images"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer shrink-0 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
           >
             <span className="relative w-5 h-5 sm:w-[22px] sm:h-[22px] block" aria-hidden="true">
-              <Plus className={`absolute inset-0 w-full h-full transition-all duration-300 ease-out ${isAttachOpen ? 'rotate-90 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100'}`} />
-              <X className={`absolute inset-0 w-full h-full transition-all duration-300 ease-out ${isAttachOpen ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0'}`} />
+              <Plus className="absolute inset-0 w-full h-full transition-all duration-300 ease-out rotate-0 scale-100 opacity-100" />
+              <X className="absolute inset-0 w-full h-full transition-all duration-300 ease-out -rotate-90 scale-0 opacity-0" />
             </span>
           </button>
-
-          {isAttachOpen && (
-            <div id="prompt-actions-dropdown" className="absolute left-0 top-full mt-3 w-72 sm:w-80 bg-white rounded-[26px] shadow-[0_16px_40px_rgba(0,0,0,0.14),0_2px_8px_rgba(0,0,0,0.04)] border border-neutral-200/90 p-2.5 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl hover:bg-neutral-50 transition-colors text-left group cursor-pointer">
-                <span className="flex items-center gap-3.5"><Paperclip className="w-[18px] h-[18px] text-neutral-800" /><span className="text-[15px] font-medium text-neutral-800">Attach Files</span></span><Lock className="w-4 h-4 text-neutral-400 fill-neutral-400/80" />
-              </button>
-              <div className="my-1.5 border-t border-neutral-100" />
-              <button type="button" onClick={() => selectFeature('Web Search')} className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl hover:bg-neutral-50 transition-colors text-left group cursor-pointer"><span className="flex items-center gap-3.5"><Globe className="w-[18px] h-[18px] text-neutral-800" /><span className="text-[15px] font-medium text-neutral-800">Web Search</span></span><Lock className="w-4 h-4 text-neutral-400 fill-neutral-400/80" /></button>
-              <button type="button" onClick={() => selectFeature('Compare')} className="w-full flex items-center gap-3.5 px-3.5 py-3 rounded-2xl hover:bg-neutral-50 transition-colors text-left group cursor-pointer"><Columns3 className="w-[18px] h-[18px] text-neutral-800" /><span className="text-[15px] font-medium text-neutral-800">Compare</span></button>
-              <button type="button" onClick={() => selectFeature('Deep Research')} className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl hover:bg-neutral-50 transition-colors text-left group cursor-pointer"><span className="flex items-center gap-3.5"><Atom className="w-[18px] h-[18px] text-neutral-800" /><span className="text-[15px] font-medium text-neutral-800">Deep Research</span></span><Lock className="w-4 h-4 text-neutral-400 fill-neutral-400/80" /></button>
-            </div>
-          )}
         </div>
 
         <input ref={inputRef} id="prompt-input" type="text" value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={handleKeyDown} placeholder={placeholder} className="flex-1 min-w-0 bg-transparent border-0 outline-none text-neutral-900 placeholder:text-neutral-400 text-base sm:text-[17px] font-normal tracking-tight px-2 py-1 select-text" />
 
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button id="mode-selector-btn" type="button" onClick={() => setIsChooseModelOpen(true)} className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-[13px] font-medium text-neutral-800 hover:text-neutral-950 bg-[#f4f3ef] hover:bg-[#eae8e1] transition-all cursor-pointer">
-            {isAutoMode || selectedModels.length === 0 ? <span>Auto</span> : <><span>{selectedModels.length === 1 ? selectedModels[0].name : `${selectedModels.length} models`}</span></>}
+            {isAutoMode || selectedModels.length === 0 ? <span>Auto</span> : <span>{selectedModels.length === 1 ? selectedModels[0].name : `${selectedModels.length} models`}</span>}
             <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />
           </button>
           {value.trim() ? (
